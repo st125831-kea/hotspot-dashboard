@@ -31,7 +31,7 @@ st.title("🔥 ระบบติดตามจุดความร้อน (
 # โหลดข้อมูล
 with st.spinner('กำลังโหลดข้อมูล...'):
     data = load_data()
-
+    st.write(data.columns.tolist())
 # 3. Sidebar ตัวกรอง (ใช้ชื่อภาษาไทยตามที่คุณระบุ)
 st.sidebar.header("ตัวกรองข้อมูล")
 
