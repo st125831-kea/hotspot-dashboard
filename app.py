@@ -3,88 +3,86 @@ import pandas as pd
 import pydeck as pdk
 import plotly.express as px
 
-# 1. การตั้งค่าหน้าจอให้กว้างเหมือน Dashboard
-st.set_page_config(layout="wide", page_title="Hotspot Dashboard 2022-2024")
+# 1. ตั้งค่าหน้าจอ
+st.set_page_config(layout="wide", page_title="Hotspot Dashboard")
 
-# 2. ฟังก์ชันดึงข้อมูลจาก Google Sheets และทำ Cache (เพื่อความเร็ว)
+# 2. ฟังก์ชันดึงข้อมูล
 @st.cache_data
 def load_data():
-    # URL สำหรับ Export Google Sheets เป็น CSV
     sheet_id = "19iGWLP1HFF9NuVxZWNgphNUaBnifyJ4WsYQoZMLtLOE"
     sheet_name = "hotspot2022-2024"
-    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+    # ใช้ URL แบบดึง CSV โดยตรง
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&sheet={sheet_name}"
     
+    # อ่านข้อมูล (ระบุเฉพาะคอลัมน์ที่ต้องใช้เพื่อประหยัด RAM)
     df = pd.read_csv(url)
-    # แปลงวันที่ให้เป็น Format ที่ถูกต้อง
-    if 'ACQ_DATE' in df.columns:
-        df['ACQ_DATE'] = pd.to_datetime(df['ACQ_DATE'])
+    
+    # ล้างช่องว่างที่อาจติดมากับหัวตาราง (สำคัญมากสำหรับภาษาไทย)
+    df.columns = df.columns.str.strip()
+    
+    # แปลงคอลัมน์ 'วัน' ให้เป็นวันที่
+    if 'วัน' in df.columns:
+        df['วัน'] = pd.to_datetime(df['วัน'])
+    
     return df
 
 st.title("🔥 ระบบติดตามจุดความร้อน (Hotspot Dashboard)")
-st.markdown("แสดงข้อมูลจาก Google Sheets (600,000+ records)")
 
 # โหลดข้อมูล
-with st.spinner('กำลังประมวลผลข้อมูลมหาศาล...'):
+with st.spinner('กำลังโหลดข้อมูล...'):
     data = load_data()
 
-# 3. ส่วนของ Sidebar สำหรับตัวกรอง (Filters)
+# 3. Sidebar ตัวกรอง (ใช้ชื่อภาษาไทยตามที่คุณระบุ)
 st.sidebar.header("ตัวกรองข้อมูล")
+
+# กรองจังหวัด
 selected_provinces = st.sidebar.multiselect(
     "เลือกจังหวัด", 
-    options=sorted(data['PROVINCE_NAME_TH'].unique()),
-    default=[]
+    options=sorted(data['จังหวัด'].unique()) if 'จังหวัด' in data.columns else []
 )
 
+# กรองการใช้ที่ดิน
 selected_landuse = st.sidebar.multiselect(
-    "ประเภทการใช้ประโยชน์ที่ดิน", 
-    options=data['LANDUSE_TYPE'].unique(),
-    default=data['LANDUSE_TYPE'].unique()
+    "การใช้ที่ดิน", 
+    options=data['การใช้ที่ดิน'].unique() if 'การใช้ที่ดิน' in data.columns else [],
+    default=data['การใช้ที่ดิน'].unique() if 'การใช้ที่ดิน' in data.columns else []
 )
 
-# กรองข้อมูลตามที่เลือก
-filtered_data = data[data['LANDUSE_TYPE'].isin(selected_landuse)]
+# ประมวลผลการกรอง
+filtered_data = data[data['การใช้ที่ดิน'].isin(selected_landuse)]
 if selected_provinces:
-    filtered_data = filtered_data[filtered_data['PROVINCE_NAME_TH'].isin(selected_provinces)]
+    filtered_data = filtered_data[filtered_data['จังหวัด'].isin(selected_provinces)]
 
-# 4. แสดง KPI Cards (ส่วนบนของต้นแบบ)
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("จำนวนจุดความร้อนทั้งหมด", f"{len(filtered_data):,}")
-# (คุณสามารถเพิ่มสูตรคำนวณ % การเปลี่ยนแปลงเทียบกับปีที่แล้วได้ที่นี่)
+# 4. แสดง KPI
+col1, col2 = st.columns(2)
+col1.metric("จำนวนจุดความร้อนที่พบ", f"{len(filtered_data):,}")
 
-# 5. แผนที่ความละเอียดสูง (Pydeck) - แสดงได้เป็นแสนจุดโดยไม่ค้าง
+# 5. แผนที่ (ใช้ LATITUDE, LONGITUDE ภาษาอังกฤษตามที่คุณบอก)
 st.subheader("📍 แผนที่ตำแหน่งจุดความร้อน")
-
-# กำหนด Layer สำหรับแผนที่
 layer = pdk.Layer(
     "ScatterplotLayer",
     filtered_data,
     get_position='[LONGITUDE, LATITUDE]',
-    get_color='[255, 75, 75, 160]',  # สีแดงโปร่งแสง
-    get_radius=500,
+    get_color='[255, 75, 75, 160]',
+    get_radius=800,
     pickable=True,
-)
-
-view_state = pdk.ViewState(
-    latitude=13.7367, longitude=100.5231, zoom=5, pitch=0
 )
 
 st.pydeck_chart(pdk.Deck(
     layers=[layer],
-    initial_view_state=view_state,
-    tooltip={"text": "จังหวัด: {PROVINCE_NAME_TH}\nวันที่: {ACQ_DATE}"}
+    initial_view_state=pdk.ViewState(latitude=13.7, longitude=100.5, zoom=5),
+    tooltip={"text": "จังหวัด: {จังหวัด}\nอำเภอ: {อำเภอ}\nที่ดิน: {การใช้ที่ดิน}"}
 ))
 
-# 6. กราฟวิเคราะห์ (ส่วนล่างของต้นแบบ)
-st.divider()
+# 6. กราฟด้านล่าง
 c1, c2 = st.columns(2)
-
 with c1:
-    st.subheader("📊 แยกตามประเภทที่ดิน")
-    fig_pie = px.pie(filtered_data, names='LANDUSE_TYPE', hole=0.4)
+    st.subheader("📊 แยกตามการใช้ที่ดิน")
+    fig_pie = px.pie(filtered_data, names='การใช้ที่ดิน', hole=0.4)
     st.plotly_chart(fig_pie, use_container_width=True)
 
 with c2:
-    st.subheader("🏆 10 จังหวัดที่มีจุดความร้อนสูงสุด")
-    top_provinces = filtered_data['PROVINCE_NAME_TH'].value_counts().head(10).reset_index()
-    fig_bar = px.bar(top_provinces, x='index', y='PROVINCE_NAME_TH', labels={'index':'จังหวัด', 'PROVINCE_NAME_TH':'จำนวนจุด'})
+    st.subheader("🏆 10 จังหวัดที่มีจุดสูงสุด")
+    top_provinces = filtered_data['จังหวัด'].value_counts().head(10).reset_index()
+    fig_bar = px.bar(top_provinces, x='index', y='จังหวัด')
     st.plotly_chart(fig_bar, use_container_width=True)
