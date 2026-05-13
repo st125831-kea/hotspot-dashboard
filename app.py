@@ -51,11 +51,11 @@ def load_data():
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&sheet={sheet_name}"
     
     # เลือกเฉพาะคอลัมน์ที่ต้องใช้
-    cols = ['LATITUDE', 'LONGITUDE', 'วัน', 'จังหวัด', 'อำเภอ', 'การใช้ที่ดิน']
+    cols = ['LATITUDE', 'LONGITUDE', 'วัน', 'ตำบล', 'อำเภอ', 'จังหวัด', 'พื้นที่รับผิดชอบ', 'การใช้ที่ดิน']
     # กำหนด Type เพื่อลดการใช้ Memory
     dtypes = {
         'LATITUDE': 'float32', 'LONGITUDE': 'float32',
-        'จังหวัด': 'category', 'การใช้ที่ดิน': 'category'
+        'จังหวัด', 'ตำบล', 'อำเภอ': 'category', 'พื้นที่รับผิดชอบ', 'การใช้ที่ดิน': 'category'
     }
     
     df = pd.read_csv(url, usecols=cols, dtype=dtypes, low_memory=False)
